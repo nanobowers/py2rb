@@ -13,6 +13,13 @@ import glob
 import copy
 from collections import OrderedDict
 
+try:
+    ast.Constant()
+except:
+    # python 3.5 doesnt have ast.Constant, which will cause failures later on
+    # so we define a dummy class/constant here.
+    ast.Constant = type('Constant', (object,), dict())
+   
 def scope(func):
     func.scope = True
     return func
@@ -798,14 +805,26 @@ class RB(object):
                 if isinstance(stmt.slice, (ast.Index)):
                     if isinstance(stmt.slice.value, (ast.Str)):
                         key = self.visit(stmt.slice)
-                    if isinstance(stmt.slice.value, (ast.Num)):
+                    elif isinstance(stmt.slice.value, (ast.Num)):
                         num = self.visit(stmt.slice)
-                if isinstance(stmt.slice, (ast.Slice)):
+                    else:
+                        raise Exception("Bad stmt.slice.value in visit_Delete %s" % type(stmt.slice.value))
+                elif isinstance(stmt.slice, (ast.Slice)):
                     slice = self.visit(stmt.slice)
+                elif isinstance(stmt.slice, (ast.Constant)): #py3.9
+                    if isinstance(stmt.slice.value, int):
+                        num = self.visit(stmt.slice)
+                    else:
+                        key = self.visit(stmt.slice)
+                else:
+                    raise Exception("Bad stmt.slice in visit_Delete %s" % type(stmt.slice))
             elif isinstance(stmt, (ast.Attribute)):
                 if isinstance(stmt.value, (ast.Name)):
                     id = self.visit(stmt.value)
                 attr = stmt.attr
+            else:
+                raise Exception("Bad stmt in visit_Delete %s" % type(stmt))
+
         if num != '':
             """ <Python> del foo[0]
                 <Ruby>   foo.delete_at[0] """
@@ -816,7 +835,7 @@ class RB(object):
             self.write("%s.delete(%s)" % (id, key))
         elif slice != '':
             """ <Python> del foo[1:3]
-                <Ruby>   foo.slise!(1...3) """
+                <Ruby>   foo.slice!(1...3) """
             self.write("%s.slice!(%s)" % (id, slice))
         elif attr != '':
             """ <Python> del foo.bar
@@ -847,7 +866,7 @@ class RB(object):
                     target_str += "%s = " % ','.join(x)
             elif isinstance(target, ast.Subscript):
                 name = self.visit(target.value)
-                if isinstance(target.slice, ast.Index):
+                if isinstance(target.slice, (ast.Index, ast.Constant)):
                     # found index assignment # a[0] = xx
                     for arg in self._function_args:
                         if arg == ("**%s" % name):
@@ -858,7 +877,7 @@ class RB(object):
                     # found slice assignmnet
                     target_str += "%s[%s...%s] = " % (name, self.visit(target.slice.lower), self.visit(target.slice.upper))
                 elif isinstance(target.slice, ast.ExtSlice):
-                    # found ExtSlice assignmnet
+                    # found ExtSlice assignment
                     target_str += "%s[%s] = " % (name, self.visit(target.slice))
                 else:
                     if self._mode == 1:
@@ -2682,7 +2701,7 @@ class RB(object):
     def visit_Subscript(self, node):
         self._is_string_symbol = False
         name = self.visit(node.value)
-        if isinstance(node.slice, (ast.Index)):
+        if isinstance(node.slice, (ast.Index, ast.Constant)):
             for arg in self._function_args:
                 if arg == ("**%s" % name):
                     self._is_string_symbol = True
