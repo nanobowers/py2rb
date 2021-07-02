@@ -81,3 +81,12 @@ traceback:
   reverse_methods:
     format_list: to_a
 
+# Provisional implementation.
+# For now we will just bypass typing in Ruby entirely which
+# means we want to map the python typing module to the absence
+# of a ruby require.
+#
+# To do this, do not set id:, but make empty dict_map:
+typing:
+  dict_map: {}
+  #id:

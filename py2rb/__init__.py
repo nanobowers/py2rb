@@ -935,6 +935,15 @@ class RB(object):
         else:
             self.write("%s %s= %s" % (target, self.get_binary_op(node), value))
 
+    def visit_AnnAssign(self, node):
+        """
+        AnnAssign(expr target, expr value)
+        """
+        target = self.visit(node.target)
+        if node.value:
+            value = self.visit(node.value)
+            self.write("%s = %s" % (target, value))
+
     @scope
     def visit_For(self, node):
         """
