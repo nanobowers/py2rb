@@ -26,7 +26,7 @@ def create_cases():
     for test_path in test_paths:
         test_cases.addTest(
             unittest.TestLoader().loadTestsFromTestCase(
-                util.compile_file_test(test_path, os.path.basename(test_path))
+                util.compile_python_file_test(test_path, os.path.basename(test_path))
                 )
             )
 
@@ -35,10 +35,13 @@ def create_cases():
     for test_path in test_paths:
         test_cases.addTest(
             unittest.TestLoader().loadTestsFromTestCase(
-                util.run_with_stdlib(test_path, os.path.basename(test_path))
+                util.run_ruby_with_stdlib(test_path, os.path.basename(test_path))
                 )
             )
 
+    # Use all of the tests/*/*.py files to add
+    # all of the transpiler feature tests.
+    
     test_paths = glob.glob("tests/*/*.py")
     test_paths.sort()
     for test_path in test_paths:
@@ -67,6 +70,8 @@ def create_cases():
 
 NOT_KNOWN_TO_FAIL, KNOWN_TO_FAIL = create_cases()
 ALL = unittest.TestSuite((NOT_KNOWN_TO_FAIL, KNOWN_TO_FAIL))
+
+print("INFO: Found {} testcases.".format(ALL.countTestCases()))
 
 def get_tests(names):
     """filters out all tests that don't exist in names and

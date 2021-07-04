@@ -1,5 +1,7 @@
 *.py[co]
 *~
+\#*
+.\#*
 .*.swp
 hello.txt
 tests/*/*.rb

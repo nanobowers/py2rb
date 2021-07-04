@@ -1645,7 +1645,15 @@ class RB(object):
         return (" %s " % self.get_bool_op(node)).join([ "%s" % self.ope_filter(self.visit(val)) for val in node.values ])
 
     def visit_UnaryOp(self, node):
-        return "%s%s" % (self.get_unary_op(node), self.visit(node.operand))
+        oper = self.get_unary_op(node)
+        operand = self.visit(node.operand)
+        # If we use a unary op on a simple item (constant/name), then just
+        # use the unary op directly.  Otherwise put parenthesis around it
+        simple_operand = isinstance(node.operand, ast.Constant) or isinstance(node.operand, ast.Name)
+        if simple_operand:
+            return "%s%s" % (oper, operand)
+        else:
+            return "%s(%s)" % (oper, operand)
 
     def visit_BinOp(self, node):
         if isinstance(node.op, ast.Mod) and isinstance(node.left, ast.Str):
@@ -2292,12 +2300,21 @@ class RB(object):
                 return "%s.times" % (self.ope_filter(rb_args[0]))
             elif len(node.args) == 2:
                 """ [2, 3, 4] <Python> range(2,5)  # s:start, e:stop
-                              <Ruby>   2.upto(5-1) """
-                return "%(s)s.upto(%(e)s-1)" % {'s':self.ope_filter(rb_args[0]), 'e':self.ope_filter(rb_args[1])}
+                              <Ruby>   PyLib.range(2, 5) """
+                rangedict = {
+                    'start':self.ope_filter(rb_args[0]),
+                    'stop':self.ope_filter(rb_args[1])
+                }
+                return "PyLib.range(%(start)s, %(stop)s)" % rangedict
             else:
                 """ [1, 4, 7] <Python> range(1,10,3) # s:start, e:stop, t:step
-                              <Ruby>   1.step(10, 3) """
-                return "%(s)s.step(%(e)s, %(t)s)" % {'s':self.ope_filter(rb_args[0]), 'e':self.ope_filter(rb_args[1]), 't':self.ope_filter(rb_args[2])}
+                              <Ruby>   PyLib.range(1, 10, 3) """
+                rangedict = {
+                    'start':self.ope_filter(rb_args[0]),
+                    'end':self.ope_filter(rb_args[1]),
+                    'step':self.ope_filter(rb_args[2])
+                }
+                return "PyLib.range(%(start)s, %(end)s, %(step)s)" % rangedict
         elif func in self.list_map:
             """ [list]
             <Python> list(range(3))
