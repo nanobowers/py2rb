@@ -10,6 +10,7 @@ else:
 import os
 import posixpath
 import re
+import yaml
 
 def get_posix_path(path):
     """translates path to a posix path"""
@@ -20,11 +21,11 @@ def get_posix_path(path):
         heads.append(head)
     return posixpath.join(*heads[::-1])
 
-def run_with_stdlib(file_path, file_name=None):
+def run_ruby_with_stdlib(file_path, file_name=None):
     """Creates a test that runs a ruby file with the stdlib."""
     file_name = file_name if file_name else file_path
 
-    class TestStdLib(unittest.TestCase):
+    class TestRubyStdLib(unittest.TestCase):
         """Tests ruby code with the stdlib"""
         templ = {
             "rb_path": file_path, 
@@ -48,9 +49,9 @@ def run_with_stdlib(file_path, file_name=None):
         def __str__(self):
             return "%(rb_unix_path)s [1]: " % self.templ
 
-    return TestStdLib
+    return TestRubyStdLib
 
-def compile_file_test(file_path, file_name=None):
+def compile_python_file_test(file_path, file_name=None):
     """Creates a test that tests if a file can be compiled by python"""
     file_name = file_name if file_name else file_path
     
@@ -106,32 +107,77 @@ def compile_and_run_file_test(file_path, file_name=None):
         "compiler_error": file_path + ".comp.err",
         "name": file_name,
         "cmd_out": name_path + ".cmd.txt",
+        "config_path": name_path + ".config.yaml",
+        # expect that these next few options may be updated in the config file
+        # on a per test basis
+        "min_python_version": None,
+        "max_python_version": None,
+        "expected_exit_status": 0,
+        "check_stdout": True,
+        "check_stderr": True,
+        "argument_list": [],
         }
         def reportProgres(self):
             """Should be overloaded by the test result class"""
 
+        def enhance_configuration(self):
+            """Read configuration overrides from a yaml file on a per-test basis"""
+            config_file = self.templ["config_path"]
+            if os.path.exists(config_file):
+                with open(config_file, 'r') as f:
+                    self.templ.update(yaml.safe_load(f))
+
+        def skip_invalid_version(self):
+            """Perform version comparison and skip the test if we are not
+            within the range of valid versions"""
+            templ=self.templ
+            pymajor = sys.version_info.major
+            pyminor = sys.version_info.minor
+            if templ["min_python_version"]:
+                minver = templ["min_python_version"]
+                reason = "pyver {}.{} < {}.{}".format(pymajor, pyminor, minver[0], minver[1])
+                cmpr = (pymajor < minver[0]) or (pymajor == minver[0] and pyminor < minver[1])
+                if cmpr:
+                    raise unittest.SkipTest(reason)
+
+            if templ["max_python_version"]:
+                minver = templ["max_python_version"]
+                reason = "pyver {}.{} > {}.{}".format(pymajor, pyminor, minver[0], minver[1])
+                cmpr = (pymajor > minver[0]) or (pymajor == minver[0] and pyminor > minver[1])
+                if cmpr:
+                    raise unittest.SkipTest(reason)
+
+            return None
+
+        def argument_string(self):
+            """Produce a string for the argument list if it exists"""
+            if self.templ["argument_list"] is None:
+                return ""
+            return " ".join(self.templ["argument_list"])
+                
+
+        
         def runTest(self):
             """The actual test goes here."""
-            commands = []
-            python_command = (
-                'python "%(py_path)s" > "%(py_out_path)s" 2> '
-                '"%(py_error)s"'
-                ) % self.templ
-            commands.append(python_command)
-            compile_command = (
-                'python py2rb.py -p "%(py_dir_path)s" -r "%(py_path)s" -m -f -w -s 2> "%(compiler_error)s"'
-                ) % self.templ
-            commands.append(compile_command)
-            ruby_command = (
-                'ruby -I py2rb/builtins "%(rb_path)s" > "%(rb_out_path)s" 2> '
-                '"%(rb_error)s"' 
-                ) % self.templ
-            commands.append(ruby_command)
+            self.enhance_configuration()
+            self.skip_invalid_version()
+            self.templ["argument_str"] = self.argument_string()
+            python_command = 'python "{py_path}" {argument_str} > "{py_out_path}" 2> "{py_error}"'.format(**self.templ)
+            compile_command = 'python py2rb.py -p "{py_dir_path}" -r "{py_path}" -m -f -w -s 2> "{compiler_error}"'.format(**self.templ)
+            ruby_command = 'ruby -I py2rb/builtins "{rb_path}" {argument_str} > "{rb_out_path}" 2> "{rb_error}"'.format(**self.templ)
+            commands = [python_command, compile_command, ruby_command]
             with open(self.templ['cmd_out'], mode = 'w') as fh:
                 for cmd in commands:
                     fh.write(cmd + '\n')
                     #print(cmd) # debug
-                    self.assertEqual(0, os.system(cmd))
+                    # The compile command should always exit cleanly.
+                    # The other two jobs may optionally have an overridden and equivalent expected_exit_status
+                    if cmd == compile_command:
+                        exitstatus = 0
+                    else:
+                        exitstatus = self.templ["expected_exit_status"]
+                    result_exit = os.system(cmd) >> 8
+                    self.assertEqual(exitstatus, result_exit)
                     self.reportProgres()
             # Partial Match
             if os.path.exists(self.templ["rb_out_expected_in_path"]):

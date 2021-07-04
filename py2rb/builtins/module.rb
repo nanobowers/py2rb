@@ -232,7 +232,31 @@ module EnumerableEx
   end
 end
 
+
 module PyLib
+  # >>> Pylib.range(start, stop)
+  # >>> Pylib.range(start, stop, step)
+  #
+  # Creating something that works similarly to python's
+  # range(a,b) and range(a,b,c) operator and returns an Enumerator
+  #
+  # Note that it doesnt work for `range(x)`, but you can implement with
+  # Ruby's `x.times`
+  
+  def self.range(start, stop, step=1)
+    curval = start
+    Enumerator.new() do |y|
+      while step > 0 ? (curval < stop) : (curval > stop)
+        y << curval
+        curval += step
+      end
+    end
+  end
+  
+
+end
+
+module PyOs
   require 'pathname'
 
 # tests/os/testdir/
@@ -283,5 +307,37 @@ module PyLib
 
     return walks
   end
+
+  # os.environ : Does not match python behavior whereby
+  # a missing key will cause an error
+  def self.environ
+    return ENV
+  end
+
+  # os.getenv
+  def self.getenv(arg)
+    return ENV[arg]
+  end
+  
 end
 
+module PySys
+
+  # Create an Object like Python's sys.argv
+
+  # Initialize with PROGRAM_NAME ($0) and ARGV
+  @argv = [$PROGRAM_NAME, *ARGV]
+
+  # Override array getter function for this object.
+  # Python ARGV will throw an IndexError when out of bounds,
+  # so we use fetch here so that Ruby exhibits the same behavior
+  def @argv.[](idx)
+    self.fetch(idx)
+  end
+
+  # Class-instance-variable accessor
+  def self.argv
+    @argv
+  end
+
+end

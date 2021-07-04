@@ -39,6 +39,11 @@ class Py2RbTestResult(unittest.TestResult):
         self.__color = "Green"
         self.__state = "[OK]"
 
+    def addSkip(self, test, reason):
+        super(Py2RbTestResult, self).addSuccess(test)
+        self.__color = "Purple"
+        self.__state = "[Skip] ({})".format(reason)
+
     def addUnexpectedSuccess(self, test):
         super(Py2RbTestResult, self).addUnexpectedSuccess(test)
         self.__color = "Green"
