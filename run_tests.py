@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#!/usr/bin/env python
 
 import optparse
 import testtools.runner
@@ -15,6 +15,10 @@ try:
 except:
     raise "Cannot find numpy, install and re-try"
 
+try:
+    import six
+except:
+    raise "Cannot find six, install and re-try"
 
 
 def main():
