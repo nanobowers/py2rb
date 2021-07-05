@@ -17,8 +17,8 @@ git clone git://github.com/naitoh/py2rb.git
 
 ## Versions
 
-- Python 3.5 .. 3.8.7
-- Ruby 2.4 .. 3.0.0
+- Python 3.5 .. 3.8
+- Ruby 2.4 .. 3.0
 
 ## Dependencies
 
@@ -36,8 +36,9 @@ git clone git://github.com/naitoh/py2rb.git
 
 In addition to walking and writing the AST tree and writing a Ruby
 syntax output, this tool either: 
-- Monkey-patches (or refines) some common Ruby Modules and Classes in order to emulate the Python equivalent. 
-- Calls equivalent Ruby methods to the python equivalent
+- Monkey-patches (or refines) some common Ruby Modules and Classes in order to emulate the Python equivalent.
+- Calls equivalent Ruby methods to the Python equivalent
+- Calls wrapped ruby methods that provide Python equivalent functionality
 
 ## Usage
 
@@ -251,6 +252,21 @@ For additional information on flags, run:
 ```
 ./run_tests.py -h
 ```
+
+### Writing new tests
+Adding tests for most new or existing functionality involves adding additional python files at `tests/<subdirectory/<testname>.py`.
+
+The test-runner scripts will automatically run py2rb to produce a ruby script, then run both the python and ruby scripts, then compare stdout/stderr and check return codes.
+
+For special test-cases, it is possible to provide a configuration YAML file on a per test basis named `tests/<subdirectory>/<testname>.config.yaml` which overrides defaults for testing.  The following keys/values are supported:
+
+```
+min_python_version: [int, int] # minimum major/minor version
+max_python_version: [int, int] # maximum major/minor version
+expected_exit_status: int      # exit status for py/rb test script
+argument_list: [str, ... str]  # list of strings as extra args for argv
+```
+
 ## License
 
 MIT, see the LICENSE file for exact details.
